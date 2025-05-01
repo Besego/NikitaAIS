@@ -1,4 +1,5 @@
 import flet as ft
+import asyncio
 from buyer import Buyer
 from styles.colors import (
     TEXT,
@@ -10,16 +11,12 @@ from styles.colors import (
 )
 from db import db_manager
 from components.component_card import ComponentCard
-from models.models import (
-    User,
-    Sale,
-    Component,
-)  # Импортируем модели для типизации и доступа к данным
+from models.models import User, Sale, Component
 import datetime
 
 
 def user_view(page: ft.Page, user_id_str: str):
-    # --- Проверка авторизации --- (остается без изменений)
+    # --- Проверка авторизации ---
     try:
         user_id = int(user_id_str)
     except (ValueError, TypeError):
@@ -28,9 +25,8 @@ def user_view(page: ft.Page, user_id_str: str):
             user_id = page.session.get("user_id")
 
     if not user_id:
-        # Возвращаем View с сообщением о необходимости входа
         return ft.View(
-            "/user",  # Маршрут для этого View
+            "/user",
             [
                 ft.Container(
                     content=ft.Column(
@@ -58,20 +54,10 @@ def user_view(page: ft.Page, user_id_str: str):
                     bgcolor=VERY_LIGHT_BLUE,
                 )
             ],
-            bgcolor=VERY_LIGHT_BLUE,  # Устанавливаем фон для View
+            bgcolor=VERY_LIGHT_BLUE,
         )
 
-    # --- Настройка страницы (перенесено в View) ---
-    # page.padding = 0 # Управляется View
-    # page.bgcolor = VERY_LIGHT_BLUE # Управляется View
-
-    # --- Функции --- (остаются без изменений)
-    def logout(e):
-        page.session.remove("user_id")
-        page.session.remove("user_name")
-        page.session.remove("user_role")
-        page.go("/login")
-
+    # --- Функции для загрузки данных ---
     def load_user_components(user_id):
         components = db_manager.get_components_by_user(user_id)
         cards = []
@@ -86,19 +72,7 @@ def user_view(page: ft.Page, user_id_str: str):
                 )
         else:
             cards.append(ft.Text("У вас пока нет комплектующих на складе.", color=TEXT))
-
-        buyer = Buyer(db_manager, user_id, components, interval=6)
-        buyer.start_buying()
-
-        return ft.GridView(
-            runs_count=5,
-            max_extent=300,
-            child_aspect_ratio=1.8,
-            spacing=10,
-            run_spacing=10,
-            controls=cards,
-            expand=True,
-        )
+        return cards
 
     def load_user_ranking():
         users_ranking = db_manager.get_users_by_sales_count()
@@ -124,38 +98,15 @@ def user_view(page: ft.Page, user_id_str: str):
                     ]
                 )
             )
-
-        return ft.DataTable(
-            columns=[
-                ft.DataColumn(
-                    ft.Text("Место", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
-                ),
-                ft.DataColumn(
-                    ft.Text("Пользователь", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
-                ),
-                ft.DataColumn(
-                    ft.Text(
-                        "Кол-во продаж", weight=ft.FontWeight.BOLD, color=DARK_BLUE
-                    ),
-                    numeric=True,
-                ),
-            ],
-            rows=rows,
-            expand=True,
-            border=ft.border.all(1, MEDIUM_BLUE),
-            border_radius=ft.border_radius.all(10),
-            heading_row_color=LIGHT_BLUE,
-            data_row_color={"hovered": MEDIUM_BLUE},
-        )
+        return rows
 
     def load_sales_history(user_id):
-        session = db_manager.Session()  # Создаем новую сессию
+        session = db_manager.Session()
         try:
-            sales = session.query(Sale).filter(Sale.user_id == user_id).all()  # Извлекаем данные из базы
+            sales = session.query(Sale).filter(Sale.user_id == user_id).all()
             rows = []
             if sales:
                 for sale in sales:
-                    # Извлекаем имя компонента и дату внутри активной сессии
                     component_name = sale.component.name if sale.component else "N/A"
                     sale_date_str = (
                         sale.sale_date.strftime("%Y-%m-%d %H:%M")
@@ -179,55 +130,143 @@ def user_view(page: ft.Page, user_id_str: str):
                             ft.DataCell(
                                 ft.Text("История продаж пуста.", color=TEXT, italic=True)
                             ),
-                            ft.DataCell(ft.Text("")),  # Пустая ячейка для Кол-во
-                            ft.DataCell(ft.Text("")),  # Пустая ячейка для Сумма
-                            ft.DataCell(ft.Text("")),  # Пустая ячейка для Дата
+                            ft.DataCell(ft.Text("")),
+                            ft.DataCell(ft.Text("")),
+                            ft.DataCell(ft.Text("")),
                         ]
                     )
                 )
-
-            return ft.DataTable(
-                columns=[
-                    ft.DataColumn(
-                        ft.Text("Комплектующее", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
-                    ),
-                    ft.DataColumn(
-                        ft.Text("Кол-во", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
-                        numeric=True,
-                    ),
-                    ft.DataColumn(
-                        ft.Text("Сумма", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
-                        numeric=True,
-                    ),
-                    ft.DataColumn(
-                        ft.Text("Дата", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
-                    ),
-                ],
-                rows=rows,
-                expand=True,
-                border=ft.border.all(1, MEDIUM_BLUE),
-                border_radius=ft.border_radius.all(10),
-                heading_row_color=LIGHT_BLUE,
-                data_row_color={"hovered": MEDIUM_BLUE},
-            )
+            return rows
         finally:
-            session.close()  # Закрываем сессию после завершения работы
+            session.close()
 
-    # --- Компоненты UI --- (остаются без изменений)
+    # --- Контейнеры для динамического контента ---
+    components_grid = ft.GridView(
+        runs_count=5,
+        max_extent=300,
+        child_aspect_ratio=1.8,
+        spacing=10,
+        run_spacing=10,
+        controls=load_user_components(user_id),
+        expand=True,
+    )
+
+    # Обертка GridView для вертикальной прокрутки с ListView
+    scrollable_components = ft.ListView(
+        controls=[components_grid],
+        expand=True,
+        spacing=10,
+        auto_scroll=False,
+    )
+
+    # Таблица рейтинга пользователей
+    ranking_table = ft.DataTable(
+        columns=[
+            ft.DataColumn(ft.Text("Место", weight=ft.FontWeight.BOLD, color=DARK_BLUE)),
+            ft.DataColumn(
+                ft.Text("Пользователь", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
+            ),
+            ft.DataColumn(
+                ft.Text("Кол-во продаж", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
+                numeric=True,
+            ),
+        ],
+        rows=load_user_ranking(),
+        expand=True,
+        border=ft.border.all(1, MEDIUM_BLUE),
+        border_radius=ft.border_radius.all(10),
+        heading_row_color=LIGHT_BLUE,
+        data_row_color={"hovered": MEDIUM_BLUE},
+        column_spacing=10,
+    )
+
+    # Таблица истории продаж
+    sales_table = ft.DataTable(
+        columns=[
+            ft.DataColumn(
+                ft.Text("Комплектующее", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
+            ),
+            ft.DataColumn(
+                ft.Text("Кол-во", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
+                numeric=True,
+            ),
+            ft.DataColumn(
+                ft.Text("Сумма", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
+                numeric=True,
+            ),
+            ft.DataColumn(ft.Text("Дата", weight=ft.FontWeight.BOLD, color=DARK_BLUE)),
+        ],
+        rows=load_sales_history(user_id),
+        expand=True,
+        border=ft.border.all(1, MEDIUM_BLUE),
+        border_radius=ft.border_radius.all(10),
+        heading_row_color=LIGHT_BLUE,
+        data_row_color={"hovered": MEDIUM_BLUE},
+        column_spacing=10,
+    )
+
+    # --- Обертка таблиц для прокрутки ---
+    def create_scrollable_table(table):
+        # Для старых версий Flet используем ListView для вертикальной прокрутки
+        return ft.Container(
+            content=ft.ListView(
+                controls=[table],
+                expand=True,
+                spacing=10,
+                auto_scroll=False,
+            ),
+            expand=True,
+            padding=10,
+        )
+
+    # --- Функции обновления ---
+    def update_components():
+        components_grid.controls = load_user_components(user_id)
+        page.update()
+
+    def update_ranking():
+        ranking_table.rows = load_user_ranking()
+        page.update()
+
+    def update_sales():
+        sales_table.rows = load_sales_history(user_id)
+        page.update()
+
+    # --- Асинхронное автообновление ---
+    async def start_auto_update():
+        while True:
+            update_components()
+            update_ranking()
+            update_sales()
+            await asyncio.sleep(6)  # Синхронизация с интервалом Buyer
+
+    # Запускаем автообновление
+    page.run_task(start_auto_update)
+
+    # --- Запуск Buyer ---
+    components = db_manager.get_components_by_user(user_id)
+    buyer = Buyer(db_manager, user_id, components, interval=6)
+    buyer.start_buying()
+
+    # --- Компоненты UI ---
+    def logout(e):
+        page.session.remove("user_id")
+        page.session.remove("user_name")
+        page.session.remove("user_role")
+        page.go("/login")
+
     logout_button = ft.IconButton(
         icon=ft.icons.LOGOUT, tooltip="Выйти", on_click=logout, icon_color=DARK_BLUE
     )
 
     user_name = page.session.get("user_name") or "Пользователь"
 
-    # AppBar создается здесь, но будет добавлен в View
     app_bar = ft.AppBar(
         title=ft.Text(f"Личный кабинет: {user_name}", color=TEXT),
         bgcolor=MEDIUM_BLUE,
         actions=[logout_button],
     )
 
-    # Tabs создаются здесь и будут основным контентом View
     tabs = ft.Tabs(
         selected_index=0,
         animation_duration=300,
@@ -235,21 +274,17 @@ def user_view(page: ft.Page, user_id_str: str):
             ft.Tab(
                 text="Мой склад",
                 icon=ft.icons.STORE,
-                content=ft.Container(
-                    load_user_components(user_id), padding=10, expand=True
-                ),
+                content=ft.Container(scrollable_components, padding=10, expand=True),
             ),
             ft.Tab(
                 text="Рейтинг пользователей",
                 icon=ft.icons.LEADERBOARD,
-                content=ft.Container(load_user_ranking(), padding=10, expand=True),
+                content=create_scrollable_table(ranking_table),
             ),
             ft.Tab(
                 text="История продаж",
                 icon=ft.icons.HISTORY,
-                content=ft.Container(
-                    load_sales_history(user_id), padding=10, expand=True
-                ),
+                content=create_scrollable_table(sales_table),
             ),
         ],
         expand=True,
@@ -262,19 +297,12 @@ def user_view(page: ft.Page, user_id_str: str):
     def go_to_create_component(e):
         page.go("/create_component")
 
-    # return ft.View(
-    #     "/user",  # Маршрут для этого View
-    #     [tabs],  # Основной контент страницы
-    #     appbar=app_bar,  # Устанавливаем AppBar для View
-    #     padding=0,  # Убираем отступы View
-    #     bgcolor=VERY_LIGHT_BLUE,  # Устанавливаем фон для View
-    # )
-    # --- View --- (остается без изменений, кроме добавления FAB)
+    # --- View ---
     return ft.View(
         f"/user/{user_id}",
-        [tabs],  # Основной контент страницы
-        appbar=app_bar,  # Устанавливаем AppBar для View
-        bgcolor=VERY_LIGHT_BLUE,  # Устанавливаем фон для View
+        [tabs],
+        appbar=app_bar,
+        bgcolor=VERY_LIGHT_BLUE,
         padding=0,
         floating_action_button=ft.FloatingActionButton(
             icon=ft.icons.ADD,
