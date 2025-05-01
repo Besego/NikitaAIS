@@ -1,0 +1,4 @@
+flet
+bcrypt
+sqlalchemy
+python-dotenv
