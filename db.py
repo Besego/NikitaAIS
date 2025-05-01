@@ -252,6 +252,45 @@ class DatabaseManager:
         finally:
             session.close()
 
+    def create_sale(self, component_id: int, user_id: int, quantity: int):
+        """Создание новой продажи."""
+        session = self.Session()
+        try:
+            # Получаем комплектующее по component_id
+            component = session.query(Component).filter(Component.component_id == component_id).first()
+            if not component:
+                print("Ошибка: Комплектующее не найдено.")
+                return None
+            if component.quantity < quantity:
+                print("Ошибка: Недостаточно комплектующих для продажи.")
+                return None
+            
+            # Рассчитываем общую стоимость
+            total_price = component.price * quantity
+            
+            # Создаем новую продажу
+            new_sale = Sale(
+                component_id=component_id,
+                user_id=user_id,
+                quantity=quantity,
+                total_price=total_price
+            )
+            
+            # Уменьшаем количество комплектующих
+            component.quantity -= quantity
+            
+            # Добавляем продажу и коммитим изменения
+            session.add(new_sale)
+            session.commit()
+            return new_sale
+        except Exception as e:
+            # В случае ошибки откатываем транзакцию
+            session.rollback()
+            print(f"Ошибка при создании продажи: {e}")
+            return None
+        finally:
+            session.close()        
+
 
 db_manager = DatabaseManager()
 # db_manager.create_tables()

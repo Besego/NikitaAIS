@@ -1,4 +1,5 @@
 import flet as ft
+from buyer import Buyer
 from styles.colors import (
     TEXT,
     LIGHT_BLUE,
@@ -86,6 +87,9 @@ def user_view(page: ft.Page, user_id_str: str):
         else:
             cards.append(ft.Text("У вас пока нет комплектующих на складе.", color=TEXT))
 
+        buyer = Buyer(db_manager, user_id, components, interval=6)
+        buyer.start_buying()
+
         return ft.GridView(
             runs_count=5,
             max_extent=300,
@@ -145,68 +149,69 @@ def user_view(page: ft.Page, user_id_str: str):
         )
 
     def load_sales_history(user_id):
-        sales = db_manager.get_sales_by_user(user_id)
-        rows = []
-        if sales:
-            for sale in sales:
-                sale_date_str = (
-                    sale.sale_date.strftime("%Y-%m-%d %H:%M")
-                    if sale.sale_date
-                    else "N/A"
-                )
+        session = db_manager.Session()  # Создаем новую сессию
+        try:
+            sales = session.query(Sale).filter(Sale.user_id == user_id).all()  # Извлекаем данные из базы
+            rows = []
+            if sales:
+                for sale in sales:
+                    # Извлекаем имя компонента и дату внутри активной сессии
+                    component_name = sale.component.name if sale.component else "N/A"
+                    sale_date_str = (
+                        sale.sale_date.strftime("%Y-%m-%d %H:%M")
+                        if sale.sale_date
+                        else "N/A"
+                    )
+                    rows.append(
+                        ft.DataRow(
+                            cells=[
+                                ft.DataCell(ft.Text(component_name, color=TEXT)),
+                                ft.DataCell(ft.Text(str(sale.quantity), color=TEXT)),
+                                ft.DataCell(ft.Text(f"{sale.total_price:.2f}", color=TEXT)),
+                                ft.DataCell(ft.Text(sale_date_str, color=TEXT)),
+                            ]
+                        )
+                    )
+            else:
                 rows.append(
                     ft.DataRow(
                         cells=[
                             ft.DataCell(
-                                ft.Text(
-                                    sale.component.name if sale.component else "N/A",
-                                    color=TEXT,
-                                )
+                                ft.Text("История продаж пуста.", color=TEXT, italic=True)
                             ),
-                            ft.DataCell(ft.Text(str(sale.quantity), color=TEXT)),
-                            ft.DataCell(ft.Text(f"{sale.total_price:.2f}", color=TEXT)),
-                            ft.DataCell(ft.Text(sale_date_str, color=TEXT)),
+                            ft.DataCell(ft.Text("")),  # Пустая ячейка для Кол-во
+                            ft.DataCell(ft.Text("")),  # Пустая ячейка для Сумма
+                            ft.DataCell(ft.Text("")),  # Пустая ячейка для Дата
                         ]
                     )
                 )
-        else:
-            rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(
-                            ft.Text("История продаж пуста.", color=TEXT, italic=True)
-                        ),
-                        ft.DataCell(ft.Text("")),  # Пустая ячейка для Кол-во
-                        ft.DataCell(ft.Text("")),  # Пустая ячейка для Сумма
-                        ft.DataCell(ft.Text("")),  # Пустая ячейка для Дата
-                    ]
-                )
-            )
 
-        return ft.DataTable(
-            columns=[
-                ft.DataColumn(
-                    ft.Text("Комплектующее", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
-                ),
-                ft.DataColumn(
-                    ft.Text("Кол-во", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
-                    numeric=True,
-                ),
-                ft.DataColumn(
-                    ft.Text("Сумма", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
-                    numeric=True,
-                ),
-                ft.DataColumn(
-                    ft.Text("Дата", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
-                ),
-            ],
-            rows=rows,
-            expand=True,
-            border=ft.border.all(1, MEDIUM_BLUE),
-            border_radius=ft.border_radius.all(10),
-            heading_row_color=LIGHT_BLUE,
-            data_row_color={"hovered": MEDIUM_BLUE},
-        )
+            return ft.DataTable(
+                columns=[
+                    ft.DataColumn(
+                        ft.Text("Комплектующее", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
+                    ),
+                    ft.DataColumn(
+                        ft.Text("Кол-во", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
+                        numeric=True,
+                    ),
+                    ft.DataColumn(
+                        ft.Text("Сумма", weight=ft.FontWeight.BOLD, color=DARK_BLUE),
+                        numeric=True,
+                    ),
+                    ft.DataColumn(
+                        ft.Text("Дата", weight=ft.FontWeight.BOLD, color=DARK_BLUE)
+                    ),
+                ],
+                rows=rows,
+                expand=True,
+                border=ft.border.all(1, MEDIUM_BLUE),
+                border_radius=ft.border_radius.all(10),
+                heading_row_color=LIGHT_BLUE,
+                data_row_color={"hovered": MEDIUM_BLUE},
+            )
+        finally:
+            session.close()  # Закрываем сессию после завершения работы
 
     # --- Компоненты UI --- (остаются без изменений)
     logout_button = ft.IconButton(
