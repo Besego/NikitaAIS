@@ -6,6 +6,7 @@ from pages.registration_page import registration_view
 
 from pages.user_page import user_view
 from pages.admin_page import admin_view
+from pages.create_component_page import create_component_view  # Добавляем импорт
 
 # from pages.cart_page import cart_view
 # from pages.orders_page import orders_view
@@ -17,6 +18,7 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
     # Словарь для хранения представлений по маршрутам (статичные маршруты)
+    # Убираем create_component_view отсюда, так как он требует page и может зависеть от сессии
     static_views = {
         "/login": login_view(page),
         "/registration": registration_view(page),
@@ -46,6 +48,12 @@ def main(page: ft.Page):
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     padding=0,
                 )
+        elif (
+            current_route == "/create_component"
+        ):  # Добавляем обработку нового маршрута
+            view_to_append = create_component_view(
+                page
+            )  # create_component_view возвращает ft.View
         # elif current_route.startswith("/cart/"): # Добавьте обработку других динамических маршрутов, если они возвращают View
         #     parts = current_route.split("/")
         #     if len(parts) == 3:
@@ -80,17 +88,27 @@ def main(page: ft.Page):
             # Обрабатываем статичные маршруты или случаи, когда динамический маршрут не вернул View
             view_content = static_views.get(current_route)
             if view_content is None:
+                # Если маршрут не найден ни в динамических, ни в статических, перенаправляем на логин
                 view_content = static_views["/login"]
                 current_route = "/login"
 
-            # Для статичных маршрутов создаем View здесь
-            view_to_append = ft.View(
-                route=current_route,
-                controls=[view_content],
-                vertical_alignment=ft.MainAxisAlignment.CENTER,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                padding=0,
-            )
+            # Для статичных маршрутов создаем View здесь, если view_content не None
+            # (view_to_append уже мог быть создан для динамических или /create_component)
+            if view_to_append is None and view_content is not None:
+                view_to_append = ft.View(
+                    route=current_route,
+                    controls=[view_content],
+                    vertical_alignment=ft.MainAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    padding=0,
+                )
+            elif view_to_append is None and view_content is None:
+                # На случай если /login тоже не найден (маловероятно)
+                # Можно добавить базовый View или обработку ошибки
+                view_to_append = ft.View(
+                    route="/login",
+                    controls=[ft.Text("Ошибка: страница входа не найдена.")],
+                )
 
         # Добавляем подготовленное представление
         if view_to_append:
@@ -98,16 +116,9 @@ def main(page: ft.Page):
         else:
             # Обработка случая, если view_to_append не был создан (маловероятно с текущей логикой, но для безопасности)
             print(f"Error: No view could be determined for route {current_route}")
-            # Можно перенаправить на страницу логина по умолчанию
-            login_view_content = static_views["/login"]
+            # Можно добавить перенаправление на страницу по умолчанию или показать ошибку
             page.views.append(
-                ft.View(
-                    route="/login",
-                    controls=[login_view_content],
-                    vertical_alignment=ft.MainAxisAlignment.CENTER,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    padding=0,
-                )
+                ft.View(route="/login", controls=[ft.Text("Ошибка маршрутизации.")])
             )
 
         page.update()
@@ -120,9 +131,12 @@ def main(page: ft.Page):
     page.on_route_change = route_change
     page.on_view_pop = view_pop
 
-    # Устанавливаем начальный маршрут
-    page.go("/login")
+    # Начальный маршрут
+    if page.session.contains_key("user_id"):
+        user_id = page.session.get("user_id")
+        page.go(f"/user/{user_id}")
+    else:
+        page.go("/login")
 
 
-# Запуск приложения
-ft.app(target=main)
+ft.app(target=main, view=ft.AppView.WEB_BROWSER)

@@ -1,4 +1,3 @@
-# user_page.py
 import flet as ft
 from styles.colors import (
     TEXT,
@@ -82,7 +81,7 @@ def user_view(page: ft.Page, user_id_str: str):
                         component_name=comp.name,
                         quantity=comp.quantity,
                         price=comp.price,
-                    )
+                    ).build()
                 )
         else:
             cards.append(ft.Text("У вас пока нет комплектующих на складе.", color=TEXT))
@@ -255,12 +254,28 @@ def user_view(page: ft.Page, user_id_str: str):
         divider_color=MEDIUM_BLUE,
     )
 
-    # --- Возвращаем View ---
-    # Вместо возврата Column, возвращаем View, который содержит AppBar и основной контент (Tabs)
+    def go_to_create_component(e):
+        page.go("/create_component")
+
+    # return ft.View(
+    #     "/user",  # Маршрут для этого View
+    #     [tabs],  # Основной контент страницы
+    #     appbar=app_bar,  # Устанавливаем AppBar для View
+    #     padding=0,  # Убираем отступы View
+    #     bgcolor=VERY_LIGHT_BLUE,  # Устанавливаем фон для View
+    # )
+    # --- View --- (остается без изменений, кроме добавления FAB)
     return ft.View(
-        "/user",  # Маршрут для этого View
+        f"/user/{user_id}",
         [tabs],  # Основной контент страницы
         appbar=app_bar,  # Устанавливаем AppBar для View
-        padding=0,  # Убираем отступы View
         bgcolor=VERY_LIGHT_BLUE,  # Устанавливаем фон для View
+        padding=0,
+        floating_action_button=ft.FloatingActionButton(
+            icon=ft.icons.ADD,
+            tooltip="Добавить комплектующее",
+            on_click=go_to_create_component,
+            bgcolor=MEDIUM_BLUE,
+        ),
+        floating_action_button_location=ft.FloatingActionButtonLocation.END_FLOAT,
     )

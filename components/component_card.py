@@ -1,4 +1,3 @@
-# /Users/buhdunchik/Desktop/Github/NikitaAIS/components/component_card.py
 import flet as ft
 from styles.colors import PINK_LIGHT, YELLOW_LIGHT, TEXT, PINK_MEDIUM, PINK_DARK
 
@@ -9,6 +8,11 @@ class ComponentCard:
         self.component_name = component_name
         self.quantity = quantity
         self.price = price
+
+    # def _get_control_name(
+    #     self,
+    # ):
+    #     return self.__repr__()
 
     def build(self):
         return ft.Card(
