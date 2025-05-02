@@ -245,7 +245,13 @@ def user_view(page: ft.Page, user_id_str: str):
 
     # --- Запуск Buyer ---
     components = db_manager.get_components_by_user(user_id)
-    buyer = Buyer(db_manager, user_id, components, interval=6)
+    buyer = Buyer(
+        sale_manager=db_manager,
+        user_id=user_id,
+        components=components,
+        interval=6,  # Интервал в секундах
+        page=page,  # Передаем объект страницы
+    )
     buyer.start_buying()
 
     # --- Компоненты UI ---
