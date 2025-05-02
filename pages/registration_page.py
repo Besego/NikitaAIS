@@ -250,19 +250,27 @@ def registration_view(page: ft.Page):
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=5,  # Уменьшено для компактности с добавленными сообщениями об ошибках
+            expand=True,  # Добавлено expand=True для внутреннего Column
         ),
         padding=ft.padding.all(20),
         border_radius=ft.border_radius.all(10),
-        gradient=ft.LinearGradient(
-            begin=ft.alignment.top_left,
-            end=ft.alignment.bottom_right,
-            colors=[PINK_LIGHT, YELLOW_LIGHT],
-        ),
+        # gradient=ft.LinearGradient( # Градиент перенесен на внешний контейнер
+        #     begin=ft.alignment.top_left,
+        #     end=ft.alignment.bottom_right,
+        #     colors=[PINK_LIGHT, YELLOW_LIGHT],
+        # ),
         alignment=ft.alignment.center,
-        expand=True,
+        # expand=True, # Убрано expand=True
     )
 
     # Создаем ScrollView для возможности прокрутки формы на маленьких экранах
     return ft.Container(
-        content=ft.Column([form_container], scroll=ft.ScrollMode.AUTO), expand=True
+        content=ft.Column([form_container], scroll=ft.ScrollMode.AUTO, expand=True),
+        expand=True,
+        gradient=ft.LinearGradient(  # Градиент добавлен сюда
+            begin=ft.alignment.top_left,
+            end=ft.alignment.bottom_right,
+            colors=[PINK_LIGHT, YELLOW_LIGHT],
+        ),
+        alignment=ft.alignment.center,  # Добавлено выравнивание для центрирования Column
     )
