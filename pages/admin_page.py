@@ -49,6 +49,12 @@ def admin_view(page: ft.Page):
             ],
             bgcolor=VERY_LIGHT_BLUE,
         )
+    
+    def is_mobile(page):
+        return page.width < 600
+    
+    def is_tablet(page):
+        return 600 <= page.width < 1024
 
     # --- Функции для загрузки данных ---
     def load_users():
@@ -310,17 +316,103 @@ def admin_view(page: ft.Page):
     )
 
     # --- Обертка таблиц для прокрутки ---
-    def create_scrollable_table(table):
-        return ft.Container(
-            content=ft.ListView(
-                controls=[table],
-                expand=True,
-                spacing=10,
-                auto_scroll=False,
-            ),
-            expand=True,
+    def create_scrollable_table(page, table, title=None, description=None):
+        """Создает адаптивную таблицу с прокруткой вверх-вниз и влево-вправо.
+
+        """
+        # Определяем тип устройства
+        is_mob = is_mobile(page)
+        is_tab = is_tablet(page)
+
+        # Заголовок и описание (если переданы)
+        header = []
+        if title:
+            header.append(ft.Text(title, size=20, weight=ft.FontWeight.BOLD, color=DARK_BLUE))
+        if description:
+            header.append(ft.Text(description, color=TEXT))
+
+        # Настраиваем таблицу
+        table.border = ft.border.all(1, ft.colors.BLACK12)
+        table.heading_row_color = ft.colors.BLACK12
+
+        # Контейнер для таблицы с визуальными улучшениями
+        table_container = ft.Container(
+            width=600,
+            content=table,
             padding=10,
+            bgcolor=WHITE,
+            border_radius=10,
+            shadow=ft.BoxShadow(
+                spread_radius=1,
+                blur_radius=5,
+                color=ft.colors.with_opacity(0.15, ft.colors.BLACK)
+            ),
         )
+
+        # Логика для мобильных устройств
+        if is_mob:
+            # Индикаторы прокрутки для мобильных
+            scroll_indicators = ft.Row([
+                ft.Icon(ft.icons.SWIPE, color=DARK_BLUE, size=18),
+                ft.Text("Прокрутите влево-вправо для просмотра всей таблицы",
+                        color=TEXT, size=12),
+            ], alignment=ft.MainAxisAlignment.CENTER)
+
+            # Горизонтальная прокрутка
+            horizontal_scroll = ft.Row(
+                [table_container],
+                scroll=ft.ScrollMode.AUTO,
+                vertical_alignment=ft.CrossAxisAlignment.START
+            )
+
+            # Вертикальная прокрутка с ограничением высоты
+            return ft.Column(
+                [
+                    *header,
+                    scroll_indicators,
+                    ft.Container(
+                        content=horizontal_scroll,
+                    )
+                ],
+                spacing=10,
+                scroll=ft.ScrollMode.AUTO  # Включаем вертикальную прокрутку
+            )
+
+        # Логика для планшетов
+        elif is_tab:
+            # Горизонтальная прокрутка
+            horizontal_scroll = ft.Row(
+                [table_container],
+                scroll=ft.ScrollMode.AUTO,
+                vertical_alignment=ft.CrossAxisAlignment.START
+            )
+
+            return ft.Column(
+                [
+                    *header,
+                    horizontal_scroll
+                ],
+                spacing=15,
+                scroll=ft.ScrollMode.AUTO,
+            )
+
+        # Логика для десктопов
+        else:
+            # Горизонтальная прокрутка
+            horizontal_scroll = ft.Row(
+                [table_container],
+                scroll=ft.ScrollMode.AUTO,
+                vertical_alignment=ft.CrossAxisAlignment.START
+            )
+
+            return ft.Column(
+                [
+                    *header,
+                    horizontal_scroll
+                ],
+                spacing=15,
+                scroll=ft.ScrollMode.AUTO,
+            )
 
     # --- Функции обновления ---
     def update_users():
@@ -358,9 +450,18 @@ def admin_view(page: ft.Page):
     )
 
     app_bar = ft.AppBar(
-        title=ft.Text("Панель администратора", color=TEXT),
+        title=ft.Row(
+            [
+                ft.Icon(ft.icons.ADMIN_PANEL_SETTINGS, color=WHITE),
+                ft.Text("Панель администратора", color=WHITE, size=20, weight=ft.FontWeight.BOLD),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+        ),
         bgcolor=MEDIUM_BLUE,
         actions=[logout_button],
+        center_title=True,
+        toolbar_height=60,
+        elevation=4,
     )
 
     tabs = ft.Tabs(
@@ -370,17 +471,17 @@ def admin_view(page: ft.Page):
             ft.Tab(
                 text="Пользователи",
                 icon=ft.icons.PEOPLE,
-                content=create_scrollable_table(users_table),
+                content=create_scrollable_table(page,users_table,"Пользователи"),
             ),
             ft.Tab(
                 text="Комплектующие",
                 icon=ft.icons.STORE,
-                content=create_scrollable_table(components_table),
+                content=create_scrollable_table(page,components_table,"Комплектующие"),
             ),
             ft.Tab(
                 text="Продажи",
                 icon=ft.icons.HISTORY,
-                content=create_scrollable_table(sales_table),
+                content=create_scrollable_table(page,sales_table,"Продажи"),
             ),
         ],
         expand=True,
