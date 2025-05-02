@@ -1,15 +1,10 @@
 import flet as ft
 
-# Импортируем представления страниц
 from pages.login_page import login_view
 from pages.registration_page import registration_view
-
 from pages.user_page import user_view
 from pages.admin_page import admin_view
-from pages.create_component_page import create_component_view  # Добавляем импорт
-
-# from pages.cart_page import cart_view
-# from pages.orders_page import orders_view
+from pages.create_component_page import create_component_view
 
 
 def main(page: ft.Page):
@@ -17,8 +12,6 @@ def main(page: ft.Page):
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
-    # Словарь для хранения представлений по маршрутам (статичные маршруты)
-    # Убираем create_component_view отсюда, так как он требует page и может зависеть от сессии
     static_views = {
         "/login": login_view(page),
         "/registration": registration_view(page),
@@ -27,15 +20,13 @@ def main(page: ft.Page):
 
     def route_change(route):
         page.views.clear()
-        view_to_append = None  # Переименовали переменную для ясности
+        view_to_append = None
         current_route = page.route
 
-        # Проверяем динамические маршруты
         if current_route.startswith("/user/"):
             parts = current_route.split("/")
             if len(parts) == 3:
                 user_id = parts[2]
-                # user_view уже возвращает ft.View
                 view_to_append = user_view(page, user_id)
             else:
                 # Если ID пользователя не указан, перенаправляем на логин
@@ -48,52 +39,21 @@ def main(page: ft.Page):
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     padding=0,
                 )
+        elif current_route == "/admin":
+            view_to_append = admin_view(page)
+
         elif (
             current_route == "/create_component"
-        ):  # Добавляем обработку нового маршрута
+        ):
             view_to_append = create_component_view(
                 page
             )  # create_component_view возвращает ft.View
-        # elif current_route.startswith("/cart/"): # Добавьте обработку других динамических маршрутов, если они возвращают View
-        #     parts = current_route.split("/")
-        #     if len(parts) == 3:
-        #         user_id = parts[2]
-        #         view_to_append = cart_view(page, user_id) # Предполагая, что cart_view возвращает View
-        #     else:
-        #         view_content = static_views["/login"]
-        #         current_route = "/login"
-        #         view_to_append = ft.View(
-        #             route=current_route,
-        #             controls=[view_content],
-        #             vertical_alignment=ft.MainAxisAlignment.CENTER,
-        #             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        #             padding=0,
-        #         )
-        # elif current_route.startswith("/orders/"): # Добавьте обработку других динамических маршрутов, если они возвращают View
-        #     parts = current_route.split("/")
-        #     if len(parts) == 3:
-        #         user_id = parts[2]
-        #         view_to_append = orders_view(page, user_id) # Предполагая, что orders_view возвращает View
-        #     else:
-        #         view_content = static_views["/login"]
-        #         current_route = "/login"
-        #         view_to_append = ft.View(
-        #             route=current_route,
-        #             controls=[view_content],
-        #             vertical_alignment=ft.MainAxisAlignment.CENTER,
-        #             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        #             padding=0,
-        #         )
         else:
-            # Обрабатываем статичные маршруты или случаи, когда динамический маршрут не вернул View
             view_content = static_views.get(current_route)
             if view_content is None:
-                # Если маршрут не найден ни в динамических, ни в статических, перенаправляем на логин
                 view_content = static_views["/login"]
                 current_route = "/login"
 
-            # Для статичных маршрутов создаем View здесь, если view_content не None
-            # (view_to_append уже мог быть создан для динамических или /create_component)
             if view_to_append is None and view_content is not None:
                 view_to_append = ft.View(
                     route=current_route,
@@ -103,8 +63,6 @@ def main(page: ft.Page):
                     padding=0,
                 )
             elif view_to_append is None and view_content is None:
-                # На случай если /login тоже не найден (маловероятно)
-                # Можно добавить базовый View или обработку ошибки
                 view_to_append = ft.View(
                     route="/login",
                     controls=[ft.Text("Ошибка: страница входа не найдена.")],
@@ -114,9 +72,7 @@ def main(page: ft.Page):
         if view_to_append:
             page.views.append(view_to_append)
         else:
-            # Обработка случая, если view_to_append не был создан (маловероятно с текущей логикой, но для безопасности)
             print(f"Error: No view could be determined for route {current_route}")
-            # Можно добавить перенаправление на страницу по умолчанию или показать ошибку
             page.views.append(
                 ft.View(route="/login", controls=[ft.Text("Ошибка маршрутизации.")])
             )

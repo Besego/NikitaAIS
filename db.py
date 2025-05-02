@@ -192,21 +192,92 @@ class DatabaseManager:
         finally:
             session.close()
 
+    # def get_all_sales(self):
+    #     """Отображение списка всех продаж всех пользователей."""
+    #     session = self.Session()
+    #     try:
+    #         sales = session.query(Sale).all()
+    #         return sales
+    #     finally:
+    #         session.close()
+    
     def get_all_sales(self):
-        """Отображение списка всех продаж всех пользователей."""
+        """Отображение списка всех продаж всех пользователей с предзагрузкой связанных данных."""
         session = self.Session()
         try:
-            sales = session.query(Sale).all()
+            sales = session.query(Sale).options(
+                joinedload(Sale.component),
+                joinedload(Sale.user)
+            ).all()
             return sales
         finally:
             session.close()
+            
+    def get_all_components(self):
+        """Загрузка всех комплектующих всех пользователей."""
+        session = self.Session()
+        try:
+            components = session.query(Component).all()
+            return components
+        finally:
+            session.close()
 
+    def get_all_users(self):
+        """Получение всех пользователей."""
+        session = self.Session()
+        try:
+            users = session.query(User).all()
+            return users
+        finally:
+            session.close()        
+
+    # def delete_user(self, user_id: int):
+    #     """Удаление пользователя."""
+    #     session = self.Session()
+    #     try:
+    #         user = session.query(User).filter(User.user_id == user_id).first()
+    #         if user:
+    #             session.delete(user)
+    #             session.commit()
+    #             return True
+    #         return False
+    #     except Exception as e:
+    #         session.rollback()
+    #         print(f"Ошибка при удалении пользователя: {e}")
+    #         return False
+    #     finally:
+    #         session.close()
+
+    # def delete_component(self, component_id: int):
+    #     """Удаление комплектующего."""
+    #     session = self.Session()
+    #     try:
+    #         component = session.query(Component).filter(Component.component_id == component_id).first()
+    #         if component:
+    #             session.delete(component)
+    #             session.commit()
+    #             return True
+    #         return False
+    #     except Exception as e:
+    #         session.rollback()
+    #         print(f"Ошибка при удалении комплектующего: {e}")
+    #         return False
+    #     finally:
+    #         session.close()
+    
     def delete_user(self, user_id: int):
-        """Удаление пользователя."""
+        """Удаление пользователя и всех связанных данных."""
         session = self.Session()
         try:
             user = session.query(User).filter(User.user_id == user_id).first()
             if user:
+                # Удаляем все продажи, связанные с комплектующими пользователя
+                components = session.query(Component).filter(Component.user_id == user_id).all()
+                for component in components:
+                    session.query(Sale).filter(Sale.component_id == component.component_id).delete()
+                # Удаляем все комплектующие пользователя
+                session.query(Component).filter(Component.user_id == user_id).delete()
+                # Удаляем самого пользователя
                 session.delete(user)
                 session.commit()
                 return True
@@ -219,11 +290,14 @@ class DatabaseManager:
             session.close()
 
     def delete_component(self, component_id: int):
-        """Удаление комплектующего."""
+        """Удаление комплектующего и всех связанных продаж."""
         session = self.Session()
         try:
             component = session.query(Component).filter(Component.component_id == component_id).first()
             if component:
+                # Удаляем все продажи, связанные с этим комплектующим
+                session.query(Sale).filter(Sale.component_id == component_id).delete()
+                # Удаляем само комплектующее
                 session.delete(component)
                 session.commit()
                 return True
